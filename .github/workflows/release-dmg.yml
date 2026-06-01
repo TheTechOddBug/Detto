@@ -5,6 +5,9 @@ on:
   release:
     types: [published]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-macos:
     runs-on: macos-26
@@ -12,7 +15,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Select Xcode 26
         run: |
@@ -24,7 +27,7 @@ jobs:
         run: |
           TAG="${{ github.event.release.tag_name }}"
           VERSION="${TAG#v}"
-          PLIST="Tome/Sources/Tome/Info.plist"
+          PLIST="Detto/Sources/Detto/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
           echo "Set version to $VERSION"
@@ -91,17 +94,17 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
-          name: Tome-dmg
-          path: dist/Tome.dmg
+          name: Detto-dmg
+          path: dist/Detto.dmg
 
       - name: Attach DMG to Release
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload ${{ github.event.release.tag_name }} dist/Tome.dmg --clobber
+          gh release upload ${{ github.event.release.tag_name }} dist/Detto.dmg --clobber
 
       - name: Sign DMG and update appcast
         if: github.event_name == 'release'
@@ -111,10 +114,10 @@ jobs:
         run: |
           TAG="${{ github.event.release.tag_name }}"
           VERSION="${TAG#v}"
-          DMG_PATH="dist/Tome.dmg"
+          DMG_PATH="dist/Detto.dmg"
 
           # Extract sign_update from Sparkle build artifacts
-          SIGN_UPDATE=$(find Tome/.build/artifacts/sparkle -name "sign_update" -type f 2>/dev/null | head -1)
+          SIGN_UPDATE=$(find Detto/.build/artifacts/sparkle -name "sign_update" -type f 2>/dev/null | head -1)
           if [[ -z "$SIGN_UPDATE" ]]; then
             echo "Error: sign_update not found in Sparkle artifacts"
             exit 1
@@ -135,20 +138,20 @@ jobs:
           echo "EdDSA signature: $ED_SIGNATURE"
           echo "DMG length: $DMG_LENGTH"
 
-          DMG_URL="https://github.com/Gremble-io/Tome/releases/download/${TAG}/Tome.dmg"
+          DMG_URL="https://github.com/Gremble-io/detto/releases/download/${TAG}/Detto.dmg"
           PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S %z")
 
           # Clone gh-pages branch
-          git clone --branch gh-pages --single-branch "https://x-access-token:${GH_TOKEN}@github.com/Gremble-io/Tome.git" /tmp/gh-pages
+          git clone --branch gh-pages --single-branch "https://x-access-token:${GH_TOKEN}@github.com/Gremble-io/detto.git" /tmp/gh-pages
 
           # Generate appcast.xml
           cat > /tmp/gh-pages/appcast.xml <<APPCAST_EOF
           <?xml version="1.0" encoding="utf-8"?>
           <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
             <channel>
-              <title>Tome Updates</title>
-              <link>https://raw.githubusercontent.com/Gremble-io/Tome/gh-pages/appcast.xml</link>
-              <description>Most recent updates to Tome</description>
+              <title>Detto Updates</title>
+              <link>https://raw.githubusercontent.com/Gremble-io/detto/gh-pages/appcast.xml</link>
+              <description>Most recent updates to Detto</description>
               <language>en</language>
               <item>
                 <title>Version ${VERSION}</title>
@@ -159,7 +162,7 @@ jobs:
                 <enclosure url="${DMG_URL}"
                            sparkle:edSignature="${ED_SIGNATURE}"
                            length="${DMG_LENGTH}"
-                           type="application/octet-stream" />
+                           type="application/x-apple-diskimage" />
               </item>
             </channel>
           </rss>

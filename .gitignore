@@ -1,6 +1,6 @@
 # Build artifacts
-Tome/.build/
-Tome/.swiftpm/
+Detto/.build/
+Detto/.swiftpm/
 dist/
 build/
 
@@ -12,5 +12,9 @@ build/
 *.swp
 *~
 
+# Claude Code
+.claude/
+
 # Misc
 *.spec
+*.zip

@@ -4,11 +4,14 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Select Xcode 26
         run: |
@@ -16,5 +19,9 @@ jobs:
           swift --version
 
       - name: Build
-        working-directory: Tome
+        working-directory: Detto
         run: swift build
+
+      - name: Test
+        working-directory: Detto
+        run: swift test

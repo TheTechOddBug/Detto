@@ -1,0 +1,23 @@
+# example.txt
+# Example custom vocabulary file. Replace with your own entries.
+# See README.md in this folder for the full format guide.
+
+# --- TERMS ---
+# One per line. Use the canonical spelling and casing.
+# Single-word terms (4+ chars) get case normalization AND fuzzy matching.
+# Multi-word terms get case normalization only.
+
+Anthropic
+PostgreSQL
+Kubernetes
+San Francisco
+Half Moon Bay
+
+# --- CORRECTIONS ---
+# Format: "pattern = replacement" (note the spaces around the equals).
+# Case-insensitive, word-boundary aware, longest match first.
+# Use multi-word or distinctive patterns to avoid false positives on real words.
+
+Post Grass = PostgreSQL
+Cuber Netties = Kubernetes
+Half Moon By = Half Moon Bay
