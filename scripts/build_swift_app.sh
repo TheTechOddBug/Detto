@@ -77,6 +77,21 @@ else
   echo "Warning: Sparkle.framework not found in build artifacts"
 fi
 
+# Copy SPM-generated resource bundles into the app.
+# `swift build` produces a *.bundle directory in the release output for every
+# package target that declares `resources:`. These are accessed at runtime via
+# Bundle.module, which fails with a precondition crash if the bundle isn't
+# adjacent to the executable in the .app's Resources directory.
+# Currently catches: swift-transformers_Hub.bundle (gpt2/t5 tokenizer fallbacks),
+# swift-crypto_Crypto.bundle (PrivacyInfo). Future package additions handled automatically.
+SPM_BUILD_DIR="$SWIFT_DIR/.build/arm64-apple-macosx/release"
+shopt -s nullglob
+for bundle in "$SPM_BUILD_DIR"/*.bundle; do
+  cp -R "$bundle" "$APP_DIR/Contents/Resources/"
+  echo "Copied SPM bundle: $(basename "$bundle")"
+done
+shopt -u nullglob
+
 # Compile MLX Metal shaders into default.metallib
 MLX_METAL_DIR="$SWIFT_DIR/.build/checkouts/mlx-swift/Source/Cmlx/mlx-generated/metal"
 if [[ -d "$MLX_METAL_DIR" ]]; then

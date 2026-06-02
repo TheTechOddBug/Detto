@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.1] — 2026-06-02
+
+### Fixed
+- Crash on first launch during model initialization on clean installs. swift-transformers resource bundles (containing fallback tokenizer configs) were not being copied into the shipped app, causing `Bundle.module` to fail when loading a tokenizer for the first time. Thanks to @krazos for the detailed bug report and crash log (#35).
+
 ## [2.0.0] — 2026-06-02
 Initial public release of Detto, a complete rewrite of Tome. All processing on-device.
 
