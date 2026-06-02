@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.2] — 2026-06-02
+
+### Fixed
+- Model download recovery: if the initial Llama 3.2 3B download is interrupted (force-quit, network drop, sleep mid-download), the app now correctly detects the partial state on relaunch and resumes the download instead of failing silently. Previously affected users had to manually clear `~/Documents/huggingface/` to recover. (#36)
+
+### Added
+- Loading indicator in the main window during model download so users can see progress on first launch.
+
 ## [2.0.1] — 2026-06-02
 
 ### Fixed

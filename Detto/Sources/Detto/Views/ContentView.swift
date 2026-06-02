@@ -52,6 +52,14 @@ struct ContentView: View {
                     .transition(.opacity)
             }
         }
+        .overlay(alignment: .top) {
+            if dictationController.state.recordingState == .loadingModel && !showOnboarding {
+                ModelDownloadBanner(progress: dictationController.state.modelDownloadProgress)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.top, 8)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: dictationController.state.recordingState)
         .onChange(of: showOnboarding) {
             if !showOnboarding {
                 hasCompletedOnboarding = true
@@ -729,5 +737,34 @@ struct ContentView: View {
                 speakerName: last.speakerName
             ))
         }
+    }
+}
+
+struct ModelDownloadBanner: View {
+    let progress: Double
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+                .tint(Color.dAmber)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Downloading model")
+                    .font(.dMono(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.dText)
+                Text(progress > 0
+                    ? "\(Int(progress * 100))% of ~1.8 GB"
+                    : "Preparing download…")
+                    .font(.dMono(size: 10, weight: .medium))
+                    .foregroundStyle(Color.dDim)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.dSurface)
+                .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+        )
     }
 }
