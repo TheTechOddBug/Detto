@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.4] — 2026-06-10
+
+### Changed
+- Trimmed the bundled vocabulary list, removing several organization entries that were degrading refiner output.
+
 ## [2.0.2] — 2026-06-02
 
 ### Fixed

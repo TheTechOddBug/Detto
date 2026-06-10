@@ -40,8 +40,7 @@ struct BundledVocabulary {
             "Cowichan", "Delgamuukw", "PEAP", "Hansard",
             "Tahltan", "Gitxaala", "Barrick", "CFAA", "Landlord BC",
             // Organizations / firms
-            "Crestview Strategy",
-             "Hill+Knowlton",
+            "Crestview Strategy", "Hill+Knowlton",
             "Cadillac Fairview", "Strategy Corp", "Teneo",
             // Names that ASR gets close but not quite
             "Hoekstra", "Rexall", "Trudeau", "Kenney",
