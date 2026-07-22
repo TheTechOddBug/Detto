@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Combine
+import GrembleVoiceParakeet
 
 private let conferencingBundleIDs: [String: String] = [
     "com.microsoft.teams2": "Teams",
@@ -19,6 +20,7 @@ private let conferencingBundleIDs: [String: String] = [
 struct ContentView: View {
     @Bindable var settings: AppSettings
     var dictationController: DictationController
+    var asrManager: ParakeetModelManager
     @State private var transcriptStore = TranscriptStore()
     @State private var transcriptionEngine: TranscriptionEngine?
     @State private var sessionStore = SessionStore()
@@ -70,7 +72,7 @@ struct ContentView: View {
                 showOnboarding = true
             }
             if transcriptionEngine == nil {
-                transcriptionEngine = TranscriptionEngine(transcriptStore: transcriptStore)
+                transcriptionEngine = TranscriptionEngine(transcriptStore: transcriptStore, modelManager: asrManager)
             }
             dictationController.isMeetingActive = { [weak transcriptionEngine] in
                 transcriptionEngine?.isRunning ?? false
@@ -551,6 +553,7 @@ struct ContentView: View {
                 locale: settings.locale,
                 inputDeviceID: settings.inputDeviceID,
                 appBundleID: appName != nil ? bundleID : nil,
+                preferBuiltInMic: settings.preferBuiltInMicDuringCalls,
                 vocabularyCorrector: corrector
             )
         }
@@ -626,6 +629,7 @@ struct ContentView: View {
                     locale: settings.locale,
                     inputDeviceID: settings.inputDeviceID,
                     appBundleID: appBundleID,
+                    preferBuiltInMic: settings.preferBuiltInMicDuringCalls,
                     vocabularyCorrector: corrector
                 )
             } else {
@@ -662,7 +666,10 @@ struct ContentView: View {
 
             if settings.enablePostSessionRefinement {
                 transcriptionEngine?.assetStatus = "Polishing transcript..."
-                let corrections = await PostSessionRefiner.refine(transcriptStore.utterances)
+                let corrections = await PostSessionRefiner.refine(
+                    transcriptStore.utterances,
+                    reusing: dictationController.pipeline.residentMLXRefiner
+                )
                 for correction in corrections {
                     transcriptStore.updateText(at: correction.index, text: correction.refined)
                 }

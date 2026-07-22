@@ -1,6 +1,7 @@
 import Foundation
 import GrembleVoiceCore
 import GrembleVoiceEngine
+import GrembleVoiceParakeet
 
 @MainActor
 final class DictationController {
@@ -36,8 +37,13 @@ final class DictationController {
 
     // MARK: - Init
 
-    init() {
-        pipeline = GrembleVoicePipeline(config: DictationController.makeConfig())
+    /// - Parameter asrManager: Shared Parakeet manager so dictation and meeting
+    ///   transcription use one loaded copy of the ASR model.
+    init(asrManager: ParakeetModelManager? = nil) {
+        pipeline = GrembleVoicePipeline(
+            config: DictationController.makeConfig(),
+            sharedParakeetManager: asrManager
+        )
     }
 
     // MARK: - Config

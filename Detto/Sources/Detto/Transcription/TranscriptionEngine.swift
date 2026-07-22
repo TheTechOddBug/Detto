@@ -86,7 +86,7 @@ final class TranscriptionEngine {
     var audioLevel: Float { max(micCapture.audioLevel, systemCapture.audioLevel) }
 
     // GrembleVoice engines
-    private var modelManager: ParakeetModelManager?
+    private let modelManager: ParakeetModelManager
     private var asrEngine: ParakeetStreamingEngine?
     private var diarEngine: StreamingDiarizationEngine?
     private var offlineDiarEngine: DiarizationEngine?
@@ -117,18 +117,45 @@ final class TranscriptionEngine {
     /// Tracks whether user selected "System Default" (0) or a specific device.
     private var userSelectedDeviceID: AudioDeviceID = 0
 
+    /// When true and capturing a call on the system-default input, a Bluetooth
+    /// default input is swapped for the built-in mic to avoid contending with
+    /// the conferencing app over the headset's HFP profile.
+    private var preferBuiltInMicDuringCalls = false
+
+    /// Whether the current session captures system audio (call capture).
+    private var sessionIsCallCapture = false
+
     /// Listens for default input device changes at the OS level.
     private var defaultDeviceListenerBlock: AudioObjectPropertyListenerBlock?
 
-    init(transcriptStore: TranscriptStore) {
+    init(transcriptStore: TranscriptStore, modelManager: ParakeetModelManager) {
         self.transcriptStore = transcriptStore
+        self.modelManager = modelManager
+    }
+
+    /// Resolve which mic device to open. Returns (deviceParam, trackedID):
+    /// deviceParam is nil for "system default", trackedID is the concrete device.
+    private func resolveMicDevice(userSelected: AudioDeviceID) -> (param: AudioDeviceID?, tracked: AudioDeviceID) {
+        if userSelected > 0 {
+            return (userSelected, userSelected)
+        }
+        let systemDefault = MicCapture.defaultInputDeviceID() ?? 0
+        if preferBuiltInMicDuringCalls,
+           sessionIsCallCapture,
+           systemDefault != 0,
+           MicCapture.isBluetoothDevice(systemDefault),
+           let builtIn = MicCapture.builtInInputDeviceID() {
+            engineLog("[ENGINE-MIC-BT] Default input \(systemDefault) is Bluetooth during call capture — using built-in mic \(builtIn) instead")
+            return (builtIn, builtIn)
+        }
+        return (nil, systemDefault)
     }
 
     func preloadModels() async {
-        guard modelManager == nil else { return }
+        guard asrEngine == nil else { return }
         let preloadStart = Date()
         engineLog("[ENGINE-PRELOAD] preloading models in background...")
-        let mm = ParakeetModelManager()
+        let mm = modelManager
         let diar = StreamingDiarizationEngine(preset: .highContext)
         engineLog("[ENGINE-DIAR] Streaming preset: highContext (30000 frames)")
         let offlineDiar = DiarizationEngine()
@@ -145,7 +172,6 @@ final class TranscriptionEngine {
             async let offlineLoad: Void = offlineDiar.prepareModels()
 
             try await asrLoad
-            self.modelManager = mm
             self.asrEngine = ParakeetStreamingEngine(modelManager: mm)
 
             do {
@@ -170,10 +196,12 @@ final class TranscriptionEngine {
         }
     }
 
-    func start(locale: Locale, inputDeviceID: AudioDeviceID = 0, appBundleID: String? = nil, micOnly: Bool = false, vocabularyCorrector: VocabularyCorrector? = nil) async {
+    func start(locale: Locale, inputDeviceID: AudioDeviceID = 0, appBundleID: String? = nil, micOnly: Bool = false, preferBuiltInMic: Bool = true, vocabularyCorrector: VocabularyCorrector? = nil) async {
         engineLog("[ENGINE-0] start() called, isRunning=\(isRunning)")
         guard !isRunning else { return }
         lastError = nil
+        preferBuiltInMicDuringCalls = preferBuiltInMic
+        sessionIsCallCapture = !micOnly
 
         guard await ensureMicrophonePermission() else { return }
 
@@ -186,8 +214,8 @@ final class TranscriptionEngine {
         }
 
         // 1. Load GrembleVoice models if not already preloaded
-        if modelManager == nil {
-            let mm = ParakeetModelManager()
+        if asrEngine == nil {
+            let mm = modelManager
             let diar = StreamingDiarizationEngine(preset: .highContext)
             engineLog("[ENGINE-DIAR] Streaming preset: highContext (30000 frames)")
 
@@ -205,7 +233,6 @@ final class TranscriptionEngine {
                 async let diarLoad: Void = diar.prepareModels { _ in }
 
                 try await asrLoad
-                self.modelManager = mm
                 self.asrEngine = ParakeetStreamingEngine(modelManager: mm)
 
                 do {
@@ -233,8 +260,9 @@ final class TranscriptionEngine {
 
         // 2. Start mic capture
         userSelectedDeviceID = inputDeviceID
-        let micDeviceParam: AudioDeviceID? = inputDeviceID > 0 ? inputDeviceID : nil
-        currentMicDeviceID = inputDeviceID > 0 ? inputDeviceID : MicCapture.defaultInputDeviceID() ?? 0
+        let resolved = resolveMicDevice(userSelected: inputDeviceID)
+        let micDeviceParam = resolved.param
+        currentMicDeviceID = resolved.tracked
         engineLog("[ENGINE-3] starting mic capture, deviceParam=\(String(describing: micDeviceParam)) tracked=\(currentMicDeviceID)")
         let micStream = micCapture.bufferStream(deviceID: micDeviceParam)
         if let captureError = micCapture.captureError {
@@ -266,7 +294,6 @@ final class TranscriptionEngine {
         // 4. Start mic transcription pipeline (VADProcessor — no timing needed)
         let store = transcriptStore
         do {
-            guard let modelManager else { throw TranscriptionError.notReady }
             let micVadManager = try await modelManager.makeVadManager()
             let micVad = VADProcessor(vadManager: micVadManager)
             let micResampler = AudioBufferResampler()
@@ -364,7 +391,6 @@ final class TranscriptionEngine {
             }
 
             do {
-                guard let modelManager else { throw TranscriptionError.notReady }
                 let sysVadManager = try await modelManager.makeVadManager(threshold: 0.92)
 
                 sysLoopTask = Task.detached { [weak self] in
@@ -494,12 +520,13 @@ final class TranscriptionEngine {
 
     /// Restart only the mic capture with a new device, keeping system audio and models intact.
     func restartMic(inputDeviceID: AudioDeviceID) {
-        guard isRunning, let modelManager, let asrEngine else { return }
+        guard isRunning, let asrEngine else { return }
 
         if inputDeviceID != 0 || userSelectedDeviceID != 0 {
             userSelectedDeviceID = inputDeviceID
         }
-        let resolvedMicID = inputDeviceID > 0 ? inputDeviceID : MicCapture.defaultInputDeviceID() ?? 0
+        let resolved = resolveMicDevice(userSelected: inputDeviceID)
+        let resolvedMicID = resolved.tracked
         guard resolvedMicID != currentMicDeviceID else {
             engineLog("[ENGINE-MIC-SWAP] same device \(resolvedMicID), skipping")
             return
@@ -515,7 +542,7 @@ final class TranscriptionEngine {
 
         currentMicDeviceID = resolvedMicID
 
-        let micDeviceParam: AudioDeviceID? = inputDeviceID > 0 ? inputDeviceID : nil
+        let micDeviceParam = resolved.param
         let micStream = micCapture.bufferStream(deviceID: micDeviceParam)
         if let captureError = micCapture.captureError {
             lastError = captureError
@@ -670,9 +697,14 @@ final class TranscriptionEngine {
                     engineLog("[ENGINE-DEVICE] Selected device \(self.userSelectedDeviceID) disconnected, falling back to default")
                     self.userSelectedDeviceID = 0
                 }
+                // Wait for the device list to settle before touching the audio
+                // engine. Conferencing apps flip the default input several times
+                // in quick succession at call start; restarting mid-storm risks
+                // wedging the device (especially Bluetooth HFP negotiation).
+                // Each new change event resets this timer via the cancel above.
                 self.deviceRestartTask?.cancel()
                 self.deviceRestartTask = Task {
-                    try? await Task.sleep(for: .milliseconds(500))
+                    try? await Task.sleep(for: .seconds(3))
                     guard !Task.isCancelled else { return }
                     self.restartMic(inputDeviceID: 0)
                 }

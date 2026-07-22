@@ -20,17 +20,36 @@ struct PostSessionRefiner {
         - Output only the corrected text, nothing else.
         """
 
-    static func refine(_ utterances: [Utterance]) async -> [Correction] {
+    /// Refine utterances with the on-device LLM.
+    ///
+    /// Pass the app's resident refiner (the dictation pipeline's) via
+    /// `reusing:` so the already-loaded model is used instead of loading a
+    /// second ~1.8 GB copy. A borrowed refiner is never unloaded here. Only
+    /// when no refiner is supplied does this fall back to a temporary
+    /// load/unload cycle.
+    static func refine(
+        _ utterances: [Utterance],
+        reusing residentRefiner: PrefillMLXRefiner? = nil
+    ) async -> [Correction] {
         guard !utterances.isEmpty else { return [] }
 
         engineLog("[REFINE] Starting post-session refinement for \(utterances.count) utterances")
 
-        let refiner = PrefillMLXRefiner()
-        do {
-            try await refiner.loadModel()
-        } catch {
-            engineLog("[REFINE] Model not available, skipping refinement: \(error.localizedDescription)")
-            return []
+        let refiner: PrefillMLXRefiner
+        let ownsRefiner: Bool
+        if let residentRefiner, await residentRefiner.isModelLoaded {
+            engineLog("[REFINE] Reusing resident MLX refiner")
+            refiner = residentRefiner
+            ownsRefiner = false
+        } else {
+            refiner = PrefillMLXRefiner()
+            ownsRefiner = true
+            do {
+                try await refiner.loadModel()
+            } catch {
+                engineLog("[REFINE] Model not available, skipping refinement: \(error.localizedDescription)")
+                return []
+            }
         }
 
         try? await refiner.prefill(systemPrompt: systemPrompt)
@@ -81,7 +100,12 @@ struct PostSessionRefiner {
             }
         }
 
-        await refiner.unloadModel()
+        if ownsRefiner {
+            await refiner.unloadModel()
+        }
+        // Return the batch's Metal buffers to the OS either way — post-session
+        // refinement is bursty work whose working set shouldn't stay resident.
+        MLXMemory.clearCache()
         engineLog("[REFINE] Complete: \(corrections.count)/\(utterances.count) utterances refined")
         return corrections
     }

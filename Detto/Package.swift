@@ -6,7 +6,7 @@ let package = Package(
     name: "Detto",
     platforms: [.macOS(.v26)],
     dependencies: [
-        .package(url: "https://github.com/Gremble-io/gremble-voice.git", revision: "139cea97f6a89a8d5c86556c93527db2efa39a8c"),
+        .package(url: "https://github.com/Gremble-io/gremble-voice.git", revision: "149889c1efcad7a08c389f3350d4abdbf2df8de3"),
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.7.0"),
     ],
     targets: [

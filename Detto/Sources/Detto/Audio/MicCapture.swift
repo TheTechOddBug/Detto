@@ -265,6 +265,32 @@ final class MicCapture: @unchecked Sendable {
         return status == noErr ? uid as String : nil
     }
 
+    /// CoreAudio transport type for a device (e.g. Bluetooth, built-in), or nil.
+    static func transportType(for deviceID: AudioDeviceID) -> UInt32? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var transport: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &transport)
+        return status == noErr ? transport : nil
+    }
+
+    static func isBluetoothDevice(_ deviceID: AudioDeviceID) -> Bool {
+        guard let transport = transportType(for: deviceID) else { return false }
+        return transport == kAudioDeviceTransportTypeBluetooth
+            || transport == kAudioDeviceTransportTypeBluetoothLE
+    }
+
+    /// The built-in microphone's device ID, if this Mac has one.
+    static func builtInInputDeviceID() -> AudioDeviceID? {
+        availableInputDevices().first {
+            transportType(for: $0.id) == kAudioDeviceTransportTypeBuiltIn
+        }?.id
+    }
+
     static func defaultInputDeviceID() -> AudioDeviceID? {
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,

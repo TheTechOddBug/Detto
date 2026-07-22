@@ -23,6 +23,13 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(Int(inputDeviceID), forKey: "inputDeviceID") }
     }
 
+    /// During call capture on the system-default input, swap a Bluetooth
+    /// default mic for the built-in mic so Detto doesn't contend with the
+    /// conferencing app over the headset's HFP profile.
+    var preferBuiltInMicDuringCalls: Bool {
+        didSet { UserDefaults.standard.set(preferBuiltInMicDuringCalls, forKey: "preferBuiltInMicDuringCalls") }
+    }
+
     var vaultMeetingsPath: String {
         didSet { UserDefaults.standard.set(vaultMeetingsPath, forKey: "vaultMeetingsPath") }
     }
@@ -83,6 +90,7 @@ final class AppSettings {
         let defaults = UserDefaults.standard
         self.transcriptionLocale = defaults.string(forKey: "transcriptionLocale") ?? "en-US"
         self.inputDeviceID = AudioDeviceID(defaults.integer(forKey: "inputDeviceID"))
+        self.preferBuiltInMicDuringCalls = defaults.object(forKey: "preferBuiltInMicDuringCalls") as? Bool ?? true
         self.vaultMeetingsPath = defaults.string(forKey: "vaultMeetingsPath") ?? NSString("~/Documents/Detto/Meetings").expandingTildeInPath
         self.vaultVoicePath = defaults.string(forKey: "vaultVoicePath") ?? NSString("~/Documents/Detto/Voice").expandingTildeInPath
         self.vaultRootPath = defaults.string(forKey: "vaultRootPath") ?? ""

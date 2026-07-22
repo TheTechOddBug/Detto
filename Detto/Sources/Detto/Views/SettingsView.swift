@@ -18,6 +18,12 @@ struct SettingsView: View {
                     }
                 }
                 .font(.dMono(size: 12, weight: .medium))
+
+                Toggle("Prefer built-in mic during call capture", isOn: $settings.preferBuiltInMicDuringCalls)
+                    .font(.dMono(size: 12, weight: .medium))
+                Text("Avoids grabbing a Bluetooth headset mic that your call app is already using, which can drop the headset's audio.")
+                    .font(.dMono(size: 10, weight: .regular))
+                    .foregroundStyle(.secondary)
             } header: {
                 sectionHeader("AUDIO")
             }
