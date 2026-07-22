@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.6] — 2026-07-22
+
+### Fixed
+- Bluetooth headsets no longer lose audio when a call capture starts. During call capture on the system-default input, Detto now records your side from the built-in microphone instead of opening the headset mic that the conferencing app is already using, avoiding the HFP profile contention that could silence the headset entirely. Controlled by a new "Prefer built-in mic during call capture" toggle in Settings (default on); Macs without a built-in microphone are unaffected.
+- Memory no longer accumulates across calls. Dictation and meeting transcription now share a single Parakeet ASR instance (previously loaded twice, ~600 MB), post-session transcript polish reuses the already-loaded refiner model instead of loading a second ~1.8 GB copy per call, and the MLX Metal buffer cache is bounded at launch and cleared after each polish pass.
+- Default input device changes now wait for the device list to settle before restarting the microphone, instead of rebuilding the audio engine mid-negotiation while call apps switch devices.
+
+### Changed
+- The release pipeline now verifies the Sparkle update signature against the app's published public key before the appcast is updated, so a signing misconfiguration fails the release instead of shipping an update that installs reject as improperly signed. A standalone verification script (`scripts/verify_sparkle_signature.sh`) can audit any published release.
+
 ## [2.0.4] — 2026-06-10
 
 ### Changed
